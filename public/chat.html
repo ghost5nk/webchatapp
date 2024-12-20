@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    h1 {
+      font-size: 20px;
+    }
+    #chat-container {
+      width: 99%;
+      height: 90%;
+      background: #0f3460;
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.5);
+    }
+    #online-count {
+      position: absolute;
+      top: 75px;
+      right: 15px;
+      font-size: 13px;
+      font-family: monospace;
+      background: #4c4cd6b4;
+      padding: 5px 10px;
+      border-radius: 5px;
+      box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.3);
+    }
+    #chat-box {
+      flex: auto;
+      overflow-y: auto;
+      padding: 10px;
+      background: #1a1a2e;
+    }
+    .message {
+      margin: 5px 0;
+      padding: 10px;
+      border-radius: 10px;
+      max-width: 80%;
+      word-wrap: break-word;
+    }
+    .message.you {
+      align-self: flex-end;
+      background: #d4edda;
+      color: #155724;
+    }
+    .message.stranger {
+      align-self: flex-start;
+      background: #f8d7da;
+      color: #721c24;
+    }
+    #message-input {
+      display: flex;
+      background: #16213e;
+      padding: 10px;
+    }
+    #message-input input {
+      flex: 1;
+      padding: 15px;
+      border: none;
+      border-radius: 5px;
+      background: #1a1a2e;
+      color: #fff;
+      margin-right: 5px;
+    }
+    #message-input button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 5px;
+      background: #0f3460;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      margin-right: 5px;
+    }
+    #message-input button:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+    #message-input button:hover:not(:disabled) {
+      background: #1a1a2e;
+    }
+  </style>
+</head>
+<body>
+  
+  <h1> <a href="/">
+    <button><-</button></a>               Welcome</h1>
+  <div id="online-count">Online: 0</div>
+  <div id="chat-container">
+    <div id="chat-box"></div>
+    <div id="message-input">
+      <button id="skip">Skip</button>
+      <input id="message" type="text" placeholder="Type a message..." disabled />
+      <button id="send" disabled>Send</button>
+    </div>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    const onlineCount = document.getElementById('online-count');
+    const chatBox = document.getElementById('chat-box');
+    const messageInput = document.getElementById('message');
+    const sendButton = document.getElementById('send');
+    const skipButton = document.getElementById('skip');
+
+    const appendMessage = (message, className) => {
+      const messageElement = document.createElement('div');
+      messageElement.textContent = message;
+      messageElement.classList.add('message', className);
+      chatBox.appendChild(messageElement);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    };
+
+    const clearChat = () => {
+      chatBox.innerHTML = '';
+    };
+
+    const toggleInputState = (enabled) => {
+      messageInput.disabled = !enabled;
+      sendButton.disabled = !enabled;
+    };
+
+    socket.on('status', (statusMessage) => {
+      appendMessage(statusMessage, 'status');
+      if (statusMessage.includes('connected')) {
+        toggleInputState(true);
+      } else {
+        toggleInputState(false);
+      }
+    });
+
+    socket.on('receiveMessage', (message) => {
+      appendMessage(`Stranger: ${message}`, 'stranger');
+    });
+
+    socket.on('updateOnlineCount', (count) => {
+      onlineCount.textContent = `Online: ${count}`;
+    });
+
+    socket.on('clearChat', () => {
+      clearChat();
+    });
+
+    sendButton.addEventListener('click', () => {
+      const message = messageInput.value.trim();
+      if (message) {
+        appendMessage(`You: ${message}`, 'you');
+        socket.emit('sendMessage', message);
+        messageInput.value = '';
+      }
+    });
+
+    messageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendButton.click();
+    });
+
+    skipButton.addEventListener('click', () => {
+      clearChat();
+      appendMessage('Searching for a stranger...', 'status');
+      toggleInputState(false);
+      socket.emit('skipChat');
+    });
+  </script>
+</body>
+</html>
